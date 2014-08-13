@@ -1,0 +1,115 @@
+
+<workflow-app name="ooziewf" xmlns="uri:oozie:workflow:0.2">
+
+    <start to = "cleanup-node"/> 
+
+    <action name="cleanup-node">
+        <fs>
+            <delete path="wasb://crmhivecluster@crmhivestorage.blob.core.windows.net/ActivityPointerBaseData"/>
+            <delete path="wasb://crmhivecluster@crmhivestorage.blob.core.windows.net/PhoneCallBaseData"/>
+        </fs>
+        <ok to="RunSqoopPhoneCallBaseImport"/>
+        <error to="fail"/>
+    </action>
+
+     <action name="RunSqoopPhoneCallBaseImport">
+        <sqoop xmlns="uri:oozie:sqoop-action:0.2">
+            <job-tracker>jobtrackerhost:9010</job-tracker>
+            <name-node>wasb://crmhivecluster@crmhivestorage.blob.core.windows.net</name-node>
+            <configuration>
+                <property>
+                    <name>mapred.compress.map.output</name>
+                    <value>true</value>
+                </property>
+            </configuration>
+        <arg>import</arg>
+        <arg>--connect</arg> 
+        <arg>jdbc:sqlserver://mpe7cbgx19.database.windows.net;user=t-ankigu@mpe7cbgx19;password=turtledive11);database=NGTReportingStage</arg> 
+        <arg>--table</arg>
+        <arg>PhoneCallBase</arg> 
+        <arg>--hive-delims-replacement</arg> 
+        <arg>\t</arg> 
+        <arg>--fields-terminated-by</arg> 
+        <arg>\001</arg> 
+        <arg>--target-dir</arg> 
+        <arg>/PhoneCallBaseData</arg> 
+        <arg>-m</arg> 
+        <arg>1</arg>
+        </sqoop>
+        <ok to="RunSqoopActivityPointerBaseImport"/>
+        <error to="fail"/>
+    </action>
+
+    <action name="RunSqoopActivityPointerBaseImport">
+        <sqoop xmlns="uri:oozie:sqoop-action:0.2">
+            <job-tracker>jobtrackerhost:9010</job-tracker>
+            <name-node>wasb://crmhivecluster@crmhivestorage.blob.core.windows.net</name-node>
+            <configuration>
+                <property>
+                    <name>mapred.compress.map.output</name>
+                    <value>true</value>
+                </property>
+            </configuration>
+        <arg>import</arg>
+        <arg>--connect</arg> 
+        <arg>jdbc:sqlserver://mpe7cbgx19.database.windows.net;user=t-ankigu@mpe7cbgx19;password=turtledive11);database=NGTReportingStage</arg> 
+        <arg>--table</arg>
+        <arg>ActivityPointerBase</arg> 
+        <arg>--hive-delims-replacement</arg> 
+        <arg>\t</arg> 
+        <arg>--fields-terminated-by</arg> 
+        <arg>\001</arg> 
+        <arg>--target-dir</arg> 
+        <arg>/ActivityPointerBaseData</arg> 
+        <arg>-m</arg> 
+        <arg>1</arg>
+        </sqoop>
+        <ok to="RunActivityPointerBaseQuery"/>
+        <error to="fail"/>
+    </action>
+
+    
+
+     
+    <action name="RunActivityPointerBaseQuery">
+        <hive xmlns="uri:oozie:hive-action:0.2">
+            <job-tracker>jobtrackerhost:9010</job-tracker>
+            <name-node>wasb://crmhivecluster@crmhivestorage.blob.core.windows.net</name-node>
+            <configuration>
+                <property>
+                    <name>mapred.job.queue.name</name>
+                    <value>default</value>
+                </property>
+            </configuration>
+            <script>wasb://crmhivecluster@crmhivestorage.blob.core.windows.net/oozie/activitypointerbase_query.hql</script>
+        </hive>
+        <ok to="RunPhoneCallBaseQuery"/>
+        <error to="fail"/>
+    </action>
+
+
+    <action name="RunPhoneCallBaseQuery">
+        <hive xmlns="uri:oozie:hive-action:0.2">
+            <job-tracker>jobtrackerhost:9010</job-tracker>
+            <name-node>wasb://crmhivecluster@crmhivestorage.blob.core.windows.net</name-node>
+            <configuration>
+                <property>
+                    <name>mapred.job.queue.name</name>
+                    <value>default</value>
+                </property>
+            </configuration>
+            <script>wasb://crmhivecluster@crmhivestorage.blob.core.windows.net/oozie/phonecallbase_query.hql</script>
+        </hive>
+        <ok to="end"/>
+        <error to="fail"/>
+    </action>
+
+     
+
+    <kill name="fail">
+        <message>Job failed, error message[${wf:errorMessage(wf:lastErrorNode())}] </message>
+    </kill>
+
+
+   <end name="end"/>
+</workflow-app>
